@@ -9,8 +9,9 @@ Game::Game(QWidget *parent) :
     ui->setupUi(this);
     ui->screenLabel->setFixedSize(512,512);
     ui->mapLabel->setFixedSize(256,256);
-    setMouseTracking(true);
-    ui->screenLabel->setMouseTracking(true);
+
+    //QApplication::setOverrideCursor(Qt::BlankCursor);
+            ui->screenLabel->setCursor(Qt::BlankCursor);
 
     _x = 20;
     _y = 20;
@@ -33,6 +34,8 @@ Game::Game(QWidget *parent) :
         _map[x * _mapHeight + (_mapHeight - 1)] = 1;
     }
 
+    _map[8 * _mapHeight + 9] = 1;
+    _map[9 * _mapHeight + 8] = 1;
     _map[10 * _mapHeight + 10] = 1;
     _map[10 * _mapHeight + 11] = 1;
     _map[10 * _mapHeight + 12] = 1;
@@ -41,7 +44,6 @@ Game::Game(QWidget *parent) :
     _map[9 * _mapHeight + 15] = 1;
     _map[8 * _mapHeight + 15] = 1;
     _map[10 * _mapHeight + 15] = 1;
-
 
     //отрисовываем карту
     QPixmap pm(ui->mapLabel->size());
@@ -53,7 +55,7 @@ Game::Game(QWidget *parent) :
         {
             if (_map[x * _mapHeight + y] == 1)
             {
-                painter.fillRect(x * _blockWidth, y * _blockHeight, _blockWidth, _blockHeight, QColor(77,34,14));
+                painter.fillRect(x * _blockSide, y * _blockSide, _blockSide, _blockSide, QColor(77,34,14));
             }
         }
     }
@@ -119,20 +121,6 @@ void Game::keyReleaseEvent(QKeyEvent *event)
     QWidget::keyPressEvent(event);
 }
 
-void Game::mouseMoveEvent(QMouseEvent *event)
-{
-    QPoint curPos = event->pos() - ui->screenLabel->pos();
-    if (curPos.x() >= 0 && curPos.y() >= 0)
-        if (curPos.x() <= ui->screenLabel->width() && curPos.y() <= ui->screenLabel->height())
-        {
-            float dx = curPos.x() - ui->screenLabel->width() / 2;
-            dx = dx / ui->screenLabel->width() + 0.5;
-            dx = dx * dx * dx * (dx * (dx * 6 - 15) + 10) - 0.5;
-            _angle += dx * 5;
-        }
-    QWidget::mouseMoveEvent(event);
-}
-
 void Game::updateInterface()
 {
     QPixmap pMap = _mapPixmap;
@@ -158,9 +146,25 @@ void Game::updateInterface()
         _x -= 0.5 * cos(qDegreesToRadians(_angle - 90));
         _y -= 0.5 * sin(qDegreesToRadians(_angle - 90));
     }
+
+
+    QPoint curPos = QWidget::mapFromGlobal(QCursor::pos()) - ui->screenLabel->pos();
+    if (curPos.x() >= 0 && curPos.y() >= 0)
+    {
+        if (curPos.x() <= ui->screenLabel->width() && curPos.y() <= ui->screenLabel->height())
+        {
+            double dx = curPos.x() - ui->screenLabel->width() / 2;
+            dx = dx / ui->screenLabel->width() + 0.5;
+            dx = dx * dx * dx * (dx * (dx * 6 - 15) + 10) - 0.5;
+            _angle += dx * 32;
+        }
+    }
+    if (this->isActiveWindow())
+        QCursor::setPos(QWidget::mapToGlobal(ui->screenLabel->pos() + QPoint(256, 256)));
+
     painter.drawPoint(_x,_y);
     painter.setPen(QPen(QColor(150, 150, 0), 0.5));
-    float dist = getDistToWall(512, _angle);
+    double dist = rayCast(_angle);
     if (dist > 0)
     {
         painter.drawLine(_x, _y, _x + dist * cos(qDegreesToRadians(_angle)), _y + dist * sin(qDegreesToRadians(_angle)));
@@ -174,14 +178,16 @@ void Game::updateInterface()
     painter.begin(&pScreen);
     painter.setPen(QPen(QColor(77,34,14), 1));
 
-    float angleDiff = 90.0 / (ui->screenLabel->height() - 1);
-    float angle = _angle - 45;
+    double angleDiff = 90.0 / (ui->screenLabel->height() - 1);
+    double angle = _angle - 45;
     for (int i = 0; i < ui->screenLabel->height(); ++i)
     {
-        dist = getDistToWall(64, angle);
+        dist = rayCast(angle);
         if (dist > 0)
         {
-            float columnHeight = ui->screenLabel->height()/(dist*cos(qDegreesToRadians(angle-_angle)));
+            double columnHeight = ui->screenLabel->height()/(dist*cos(qDegreesToRadians(angle-_angle))) * 2;
+            if (columnHeight > ui->screenLabel->height())
+                columnHeight = ui->screenLabel->height();
             painter.drawLine(i, (ui->screenLabel->height() - columnHeight) / 2,
                              i, ui->screenLabel->height() - (ui->screenLabel->height() - columnHeight) / 2);
         }
@@ -192,23 +198,86 @@ void Game::updateInterface()
     ui->screenLabel->setPixmap(pScreen);
 }
 
-float Game::getDistToWall(float range, float angle)
+double Game::rayCast(double angle)
 {
-    float dist = 0;
-    bool isWall = false;
-    while (dist < range)
+    //положение игрока в координатах карты
+    double posX = _x / _blockSide;
+    double posY = _y / _blockSide;
+
+    //координаты клетки, в которой находится игрок
+    int mapX = static_cast<int>(posX);
+    int mapY = static_cast<int>(posY);
+
+    //вектор луча
+    double rayDirX = cos(qDegreesToRadians(angle));
+    double rayDirY = sin(qDegreesToRadians(angle));
+
+    //длина луча от одной стороны x или y до следующей стороны x или y
+    double deltaDistX = 1e30;
+    if (rayDirX != 0)
+        deltaDistX = abs(1 / rayDirX);
+    double deltaDistY = 1e30;
+    if (rayDirY != 0)
+        deltaDistY = abs(1 / rayDirY);
+
+    //расстояние до стены
+    double perpWallDist;
+
+    //в каком направлении двигаться в направлении x или y (либо +1, либо -1)
+    int stepX;
+    int stepY;
+
+    bool hit = false; //был ли удар луча о стену?
+    char side; //удар был о горизонатльную или вертикальную стену?
+
+    //длина луча от текущего положения до следующей стороны x или y
+    double sideDistX;
+    double sideDistY;
+    if (rayDirX < 0)
     {
-        float x = _x + dist * cos(qDegreesToRadians(angle));
-        float y = _y + dist * sin(qDegreesToRadians(angle));
-        if (_map[static_cast<int>(x / _blockWidth) * _mapHeight + static_cast<int>(y / _blockHeight)] != 0)
-        {
-            isWall = true;
-            break;
-        }
-        dist += 0.1;
+        stepX = -1;
+        sideDistX = (posX - mapX) * deltaDistX;
     }
-    if (isWall)
-        return dist;
     else
-        return -1;
+    {
+        stepX = 1;
+        sideDistX = (mapX + 1.0 - posX) * deltaDistX;
+    }
+    if (rayDirY < 0)
+    {
+        stepY = -1;
+        sideDistY = (posY - mapY) * deltaDistY;
+    }
+    else
+    {
+        stepY = 1;
+        sideDistY = (mapY + 1.0 - posY) * deltaDistY;
+    }
+
+    while (!hit)
+    {
+        //переход к следующему квадрату карты либо в направлении x, либо в направлении y
+        if (sideDistX < sideDistY)
+        {
+            sideDistX += deltaDistX;
+            mapX += stepX;
+            side = 0;
+        }
+        else
+        {
+            sideDistY += deltaDistY;
+            mapY += stepY;
+            side = 1;
+        }
+        //Проверка, не ударился ли луч о стену
+        if (_map[mapX * _mapHeight + mapY] > 0)
+            hit = true;
+    }
+    if(side == 0)
+        perpWallDist = (sideDistX - deltaDistX);
+    else
+        perpWallDist = (sideDistY - deltaDistY);
+    return perpWallDist * _blockSide;
 }
+
+
