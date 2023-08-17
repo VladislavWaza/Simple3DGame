@@ -123,25 +123,15 @@ void Game::updateInterface()
 {
     //перемещение
     if (_keyW)
-    {
-        _x += _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle));
-        _y += _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle));
-    }
+        movePlayer(_moveSpeed * _frameTime, _angle);
     if (_keyS)
-    {
-        _x -= _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle));
-        _y -= _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle));
-    }
+        movePlayer(_moveSpeed * _frameTime, _angle + 180);
     if (_keyA)
-    {
-        _x += _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle - 90));
-        _y += _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle - 90));
-    }
+        movePlayer(_moveSpeed * _frameTime, _angle - 90);
     if (_keyD)
-    {
-        _x -= _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle - 90));
-        _y -= _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle - 90));
-    }
+        movePlayer(_moveSpeed * _frameTime, _angle + 90);
+
+
 
     //поворот
     QPoint curPos = QWidget::mapFromGlobal(QCursor::pos()) - ui->screenLabel->pos();
@@ -153,6 +143,10 @@ void Game::updateInterface()
             dx = dx / ui->screenLabel->width() + 0.5;
             dx = dx * dx * dx * (dx * (dx * 6 - 15) + 10) - 0.5;
             _angle += dx * _rotationSpeed;
+            if (_angle >= 360)
+                _angle = fmod(_angle, 360);
+            if (_angle < 0)
+                _angle = fmod(_angle, 360) + 360;
         }
     }
     if (this->isActiveWindow())
@@ -279,4 +273,46 @@ double Game::rayCast(double angle)
     else
         perpWallDist = (sideDistY - deltaDistY);
     return perpWallDist * _blockSide;
+}
+
+void Game::movePlayer(double dist, double angle)
+{
+    double distToWall = rayCast(angle);
+    if (distToWall > dist) //если до стены еще далеко
+    {
+        //идем куда хотели
+        _x += dist * cos(qDegreesToRadians(angle));
+        _y += dist * sin(qDegreesToRadians(angle));
+    }
+    else //если до стены ближе чем желаем пройти
+    {
+        //подходим вплотную к стене
+        _x += (distToWall - 0.1) * cos(qDegreesToRadians(angle));
+        _y += (distToWall - 0.1) * sin(qDegreesToRadians(angle));
+
+        //сохраняем остаток непройденного пути
+        dist = dist - distToWall;
+        //вычисляем ближайшее к желаемому направление и при этом параллельное стене
+        if (abs(angle) < abs(angle - 90) && abs(angle) <= abs(angle - 180) && abs(angle) <= abs(angle - 270))
+            angle = 0;
+        if (abs(angle - 90) < abs(angle) && abs(angle - 90) <= abs(angle - 180) && abs(angle - 90) <= abs(angle - 270))
+            angle = 90;
+        if (abs(angle - 180) < abs(angle) && abs(angle - 180) <= abs(angle - 90) && abs(angle - 180) <= abs(angle - 270))
+            angle = 180;
+        if (abs(angle - 270) < abs(angle) && abs(angle - 270) <= abs(angle - 90) && abs(angle - 270) <= abs(angle - 180))
+            angle = 270;
+
+        //допроходим остаток непройденного пути в направлении параллельном стене
+        distToWall = rayCast(angle);
+        if (distToWall > dist)
+        {
+            _x += dist * cos(qDegreesToRadians(angle));
+            _y += dist * sin(qDegreesToRadians(angle));
+        }
+        else
+        {
+            _x += (distToWall - 0.1) * cos(qDegreesToRadians(angle));
+            _y += (distToWall - 0.1) * sin(qDegreesToRadians(angle));
+        }
+    }
 }

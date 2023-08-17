@@ -42,6 +42,7 @@ private:
     int _frameTime;
 
     double rayCast(double angle);
+    void movePlayer(double dist, double angle);
 };
 
 #endif // GAME_H
