@@ -178,8 +178,8 @@ void Game::updateInterface()
     painter.begin(&pScreen);
     painter.setPen(QPen(QColor(77,34,14), 1));
 
-    double angleDiff = 90.0 / (ui->screenLabel->height() - 1);
-    double angle = _angle - 45;
+    double angleDiff = _fov / (ui->screenLabel->height() - 1);
+    double angle = _angle - _fov / 2;
     for (int i = 0; i < ui->screenLabel->height(); ++i)
     {
         dist = rayCast(angle);
@@ -189,7 +189,7 @@ void Game::updateInterface()
             if (columnHeight > ui->screenLabel->height())
                 columnHeight = ui->screenLabel->height();
             painter.drawLine(i, (ui->screenLabel->height() - columnHeight) / 2,
-                             i, ui->screenLabel->height() - (ui->screenLabel->height() - columnHeight) / 2);
+                             i, (ui->screenLabel->height() + columnHeight) / 2);
         }
         angle += angleDiff;
     }
@@ -279,5 +279,3 @@ double Game::rayCast(double angle)
         perpWallDist = (sideDistY - deltaDistY);
     return perpWallDist * _blockSide;
 }
-
-

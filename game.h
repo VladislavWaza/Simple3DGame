@@ -28,6 +28,7 @@ private:
     static const int _mapWidth = 32;
     static const int _mapHeight = 32;
     static const int _blockSide = 8;
+    static const double _fov = 60;
 
     Ui::Game *ui;
     QTimer _timer;
