@@ -28,7 +28,9 @@ private:
     static const int _mapWidth = 32;
     static const int _mapHeight = 32;
     static const int _blockSide = 8;
-    static const double _fov = 60;
+    static constexpr double _fov = 60.0;
+    static constexpr double _moveSpeed = 0.015;
+    static constexpr double _rotationSpeed = 32;
 
     Ui::Game *ui;
     QTimer _timer;
@@ -36,6 +38,8 @@ private:
     QList<char> _map;
     QPixmap _mapPixmap;
     bool _keyW, _keyS, _keyA, _keyD;
+    int _msOfLastFrame;
+    int _frameTime;
 
     double rayCast(double angle);
 };

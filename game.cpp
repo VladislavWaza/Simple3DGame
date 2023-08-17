@@ -1,4 +1,5 @@
 #include <QPainter>
+#include <QTime>
 #include "game.h"
 #include "ui_game.h"
 
@@ -11,17 +12,17 @@ Game::Game(QWidget *parent) :
     ui->mapLabel->setFixedSize(256,256);
 
     //QApplication::setOverrideCursor(Qt::BlankCursor);
-            ui->screenLabel->setCursor(Qt::BlankCursor);
+    ui->screenLabel->setCursor(Qt::BlankCursor);
 
     _x = 20;
     _y = 20;
     _angle = 45;
-    _map.resize(_mapHeight * _mapWidth);
     _keyW = false;
     _keyS = false;
     _keyA = false;
     _keyD = false;
 
+    _map.resize(_mapHeight * _mapWidth);
     //делаем стены на границах
     for (int y = 0; y < _mapHeight; ++y)
     {
@@ -34,6 +35,7 @@ Game::Game(QWidget *parent) :
         _map[x * _mapHeight + (_mapHeight - 1)] = 1;
     }
 
+    //хардкодим карту
     _map[8 * _mapHeight + 9] = 1;
     _map[9 * _mapHeight + 8] = 1;
     _map[10 * _mapHeight + 10] = 1;
@@ -62,8 +64,12 @@ Game::Game(QWidget *parent) :
     painter.end();
     _mapPixmap = pm;
 
+    _frameTime = 0;
+    _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
+
+    //запускаем процесс
     connect(&_timer, &QTimer::timeout, this, &Game::updateInterface);
-    _timer.start(20);
+    _timer.start(1);
 }
 
 Game::~Game()
@@ -75,26 +81,18 @@ void Game::keyPressEvent(QKeyEvent *event)
 {
     if (event->key() == Qt::Key_W)
     {
-        _x += 0.5 * cos(qDegreesToRadians(_angle));
-        _y += 0.5 * sin(qDegreesToRadians(_angle));
         _keyW = true;
     }
     if (event->key() == Qt::Key_S)
     {
-        _x -= 0.5 * cos(qDegreesToRadians(_angle));
-        _y -= 0.5 * sin(qDegreesToRadians(_angle));
         _keyS = true;
     }
     if (event->key() == Qt::Key_A)
     {
-        _x += 0.5 * cos(qDegreesToRadians(_angle - 90));
-        _y += 0.5 * sin(qDegreesToRadians(_angle - 90));
         _keyA = true;
     }
     if (event->key() == Qt::Key_D)
     {
-        _x -= 0.5 * cos(qDegreesToRadians(_angle - 90));
-        _y -= 0.5 * sin(qDegreesToRadians(_angle - 90));
         _keyD = true;
     }
     QWidget::keyPressEvent(event);
@@ -123,31 +121,29 @@ void Game::keyReleaseEvent(QKeyEvent *event)
 
 void Game::updateInterface()
 {
-    QPixmap pMap = _mapPixmap;
-    QPainter painter(&pMap);
-    painter.setPen(QPen(QColor(0, 100, 0), 2));
+    //перемещение
     if (_keyW)
     {
-        _x += 0.5 * cos(qDegreesToRadians(_angle));
-        _y += 0.5 * sin(qDegreesToRadians(_angle));
+        _x += _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle));
+        _y += _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle));
     }
     if (_keyS)
     {
-        _x -= 0.5 * cos(qDegreesToRadians(_angle));
-        _y -= 0.5 * sin(qDegreesToRadians(_angle));
+        _x -= _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle));
+        _y -= _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle));
     }
     if (_keyA)
     {
-        _x += 0.5 * cos(qDegreesToRadians(_angle - 90));
-        _y += 0.5 * sin(qDegreesToRadians(_angle - 90));
+        _x += _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle - 90));
+        _y += _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle - 90));
     }
     if (_keyD)
     {
-        _x -= 0.5 * cos(qDegreesToRadians(_angle - 90));
-        _y -= 0.5 * sin(qDegreesToRadians(_angle - 90));
+        _x -= _moveSpeed * _frameTime * cos(qDegreesToRadians(_angle - 90));
+        _y -= _moveSpeed * _frameTime * sin(qDegreesToRadians(_angle - 90));
     }
 
-
+    //поворот
     QPoint curPos = QWidget::mapFromGlobal(QCursor::pos()) - ui->screenLabel->pos();
     if (curPos.x() >= 0 && curPos.y() >= 0)
     {
@@ -156,19 +152,20 @@ void Game::updateInterface()
             double dx = curPos.x() - ui->screenLabel->width() / 2;
             dx = dx / ui->screenLabel->width() + 0.5;
             dx = dx * dx * dx * (dx * (dx * 6 - 15) + 10) - 0.5;
-            _angle += dx * 32;
+            _angle += dx * _rotationSpeed;
         }
     }
     if (this->isActiveWindow())
         QCursor::setPos(QWidget::mapToGlobal(ui->screenLabel->pos() + QPoint(256, 256)));
 
+    //отрисовка игрока на карте и луча
+    QPixmap pMap = _mapPixmap;
+    QPainter painter(&pMap);
+    painter.setPen(QPen(QColor(0, 100, 0), 2));
     painter.drawPoint(_x,_y);
     painter.setPen(QPen(QColor(150, 150, 0), 0.5));
     double dist = rayCast(_angle);
-    if (dist > 0)
-    {
-        painter.drawLine(_x, _y, _x + dist * cos(qDegreesToRadians(_angle)), _y + dist * sin(qDegreesToRadians(_angle)));
-    }
+    painter.drawLine(_x, _y, _x + dist * cos(qDegreesToRadians(_angle)), _y + dist * sin(qDegreesToRadians(_angle)));
     painter.end();
     ui->mapLabel->setPixmap(pMap);
 
@@ -196,6 +193,10 @@ void Game::updateInterface()
 
     painter.end();
     ui->screenLabel->setPixmap(pScreen);
+
+    _frameTime = QTime::currentTime().msecsSinceStartOfDay() - _msOfLastFrame;
+    _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
+    qDebug() << _frameTime;
 }
 
 double Game::rayCast(double angle)
