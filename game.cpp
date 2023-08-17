@@ -165,9 +165,10 @@ void Game::updateInterface()
 
 
     QPixmap pScreen(ui->screenLabel->size());
-    pScreen.fill();
     painter.begin(&pScreen);
     painter.setPen(QPen(QColor(77,34,14), 1));
+    painter.fillRect(0,0,pScreen.width(), pScreen.height() / 2, QColor(136, 171, 170));
+    painter.fillRect(0,pScreen.height() / 2,pScreen.width(), pScreen.height() / 2, QColor(163, 85, 57));
 
     double angleDiff = _fov / (ui->screenLabel->height() - 1);
     double angle = _angle - _fov / 2;
@@ -184,6 +185,12 @@ void Game::updateInterface()
         }
         angle += angleDiff;
     }
+
+    painter.setPen(QPen(QColor(0, 0, 0), 1));
+    int fps = 1000;
+    if (_frameTime != 0)
+        fps /= _frameTime;
+    painter.drawText(5,10, QString::number(fps));
 
     painter.end();
     ui->screenLabel->setPixmap(pScreen);
