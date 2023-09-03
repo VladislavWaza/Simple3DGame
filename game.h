@@ -35,6 +35,7 @@ private:
     static constexpr double _fov = 60.0;
     static constexpr double _moveSpeed = 0.015;
     static constexpr double _rotationSpeed = 32;
+    static constexpr double _playerCollisionRadius = 1;
 
     Ui::Game *ui;
     QTimer _timer;

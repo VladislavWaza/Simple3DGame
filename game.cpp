@@ -319,41 +319,32 @@ double Game::rayCast(double angle, int *texX)
 void Game::movePlayer(double dist, double angle)
 {
     double distToWall = rayCast(angle);
-    if (distToWall > dist) //если до стены еще далеко
-    {
-        //идем куда хотели
+
+    //если до стены по направлению движения еще далеко, то перемещаемся
+    if (fabs((distToWall - dist) * cos(qDegreesToRadians(angle))) > _playerCollisionRadius)
         _x += dist * cos(qDegreesToRadians(angle));
+    if (fabs((distToWall - dist) * sin(qDegreesToRadians(angle))) > _playerCollisionRadius)
         _y += dist * sin(qDegreesToRadians(angle));
-    }
-    else //если до стены ближе чем желаем пройти
+
+    //проверяем не подошли ли мы к какой-нибудь стене() слишком близко
+    //если это так немного отходим назад
+    //это действие добавляе коллизию персонажу игрока
+    //и избавляет от случаев когда двигаясь к далекой стене игрок проходит вплотную с другой стеной
+    if (rayCast(0) < _playerCollisionRadius)
     {
-        //подходим вплотную к стене
-        _x += (distToWall - 0.1) * cos(qDegreesToRadians(angle));
-        _y += (distToWall - 0.1) * sin(qDegreesToRadians(angle));
+        _x -= _playerCollisionRadius - rayCast(0);
+    }
+    if (rayCast(180) < _playerCollisionRadius)
+    {
+        _x += _playerCollisionRadius - rayCast(180);
+    }
 
-        //сохраняем остаток непройденного пути
-        dist = dist - distToWall;
-        //вычисляем ближайшее к желаемому направление и при этом параллельное стене
-        if (abs(angle) < abs(angle - 90) && abs(angle) <= abs(angle - 180) && abs(angle) <= abs(angle - 270))
-            angle = 0;
-        if (abs(angle - 90) < abs(angle) && abs(angle - 90) <= abs(angle - 180) && abs(angle - 90) <= abs(angle - 270))
-            angle = 90;
-        if (abs(angle - 180) < abs(angle) && abs(angle - 180) <= abs(angle - 90) && abs(angle - 180) <= abs(angle - 270))
-            angle = 180;
-        if (abs(angle - 270) < abs(angle) && abs(angle - 270) <= abs(angle - 90) && abs(angle - 270) <= abs(angle - 180))
-            angle = 270;
-
-        //допроходим остаток непройденного пути в направлении параллельном стене
-        distToWall = rayCast(angle);
-        if (distToWall > dist)
-        {
-            _x += dist * cos(qDegreesToRadians(angle));
-            _y += dist * sin(qDegreesToRadians(angle));
-        }
-        else
-        {
-            _x += (distToWall - 0.1) * cos(qDegreesToRadians(angle));
-            _y += (distToWall - 0.1) * sin(qDegreesToRadians(angle));
-        }
+    if (rayCast(90) < _playerCollisionRadius)
+    {
+        _y -= _playerCollisionRadius - rayCast(90);
+    }
+    if (rayCast(270) < _playerCollisionRadius)
+    {
+        _y += _playerCollisionRadius - rayCast(270);
     }
 }
