@@ -8,8 +8,8 @@ Game::Game(QWidget *parent) :
     ui(new Ui::Game)
 {
     ui->setupUi(this);
-    ui->screenLabel->setFixedSize(512,512);
-    ui->mapLabel->setFixedSize(256,256);
+    ui->screenLabel->setFixedSize(_screenLabelSide,_screenLabelSide);
+    ui->mapLabel->setFixedSize(_mapLabelSide,_mapLabelSide);
 
     //скрываем курсор
     ui->screenLabel->setCursor(Qt::BlankCursor);
@@ -139,10 +139,10 @@ void Game::updateInterface()
     QPoint curPos = QWidget::mapFromGlobal(QCursor::pos()) - ui->screenLabel->pos();
     if (curPos.x() >= 0 && curPos.y() >= 0)
     {
-        if (curPos.x() <= ui->screenLabel->width() && curPos.y() <= ui->screenLabel->height())
+        if (curPos.x() <= _screenLabelSide && curPos.y() <= _screenLabelSide)
         {
-            double dx = curPos.x() - ui->screenLabel->width() / 2;
-            dx = dx / ui->screenLabel->width() + 0.5;
+            double dx = curPos.x() - _screenLabelSide / 2;
+            dx = dx / _screenLabelSide + 0.5;
             dx = dx * dx * dx * (dx * (dx * 6 - 15) + 10) - 0.5;
             _angle += dx * _rotationSpeed;
             if (_angle >= 360)
@@ -152,7 +152,7 @@ void Game::updateInterface()
         }
     }
     if (this->isActiveWindow())
-        QCursor::setPos(QWidget::mapToGlobal(ui->screenLabel->pos() + QPoint(256, 256)));
+        QCursor::setPos(QWidget::mapToGlobal(ui->screenLabel->pos() + QPoint(_screenLabelSide / 2, _screenLabelSide / 2)));
 
     //отрисовка игрока на карте и луча
     QPixmap pMap = _mapPixmap;
@@ -174,10 +174,10 @@ void Game::updateInterface()
     painter.fillRect(0,pScreen.height() / 2,pScreen.width(), pScreen.height() / 2, QColor(163, 85, 57));
 
     //испускаем лучи покрывающие угол обзора
-    double angleDiff = _fov / (ui->screenLabel->width() - 1);
+    double angleDiff = _fov / (_screenLabelSide - 1);
     double angle = _angle - _fov / 2;
 
-    for (int i = 0; i < ui->screenLabel->width(); ++i)
+    for (int i = 0; i < _screenLabelSide; ++i)
     {
         int tex;
         dist = rayCast(angle, &tex);
@@ -186,20 +186,20 @@ void Game::updateInterface()
             //лучу соответствует полоска из пикселей текстуры стены
             QPixmap line = _wall1.copy(tex, 0, 1, _wall1.height());
             //какой будет итоговая высота полоски
-            double columnHeight = ui->screenLabel->height()/(dist*cos(qDegreesToRadians(angle-_angle))) * _blockSide;
-            if (columnHeight > ui->screenLabel->height())
+            double columnHeight = _screenLabelSide/(dist*cos(qDegreesToRadians(angle-_angle))) * _blockSide;
+            if (columnHeight > _screenLabelSide)
             {
                 //если полоска больше экрана, то обрежем преждем чем растянем
-                double stretchFactor = columnHeight / ui->screenLabel->height(); //во сколько раз полоска больше экрана
+                double stretchFactor = columnHeight / _screenLabelSide; //во сколько раз полоска больше экрана
                 //отрезаем от полоски все что не будет отображено
-                line = line.copy(0, (columnHeight / 2 - ui->screenLabel->height() / 2) / stretchFactor,
-                                 1, ui->screenLabel->height() / stretchFactor);
-                columnHeight = ui->screenLabel->height();
+                line = line.copy(0, (columnHeight / 2 - _screenLabelSide / 2) / stretchFactor,
+                                 1, _screenLabelSide / stretchFactor);
+                columnHeight = _screenLabelSide;
             }
             //растягиваем или сжимаем полоску до желаемой высоты
             line = line.scaled(1, columnHeight);
             //рисуем полоску
-            painter.drawPixmap(i, (ui->screenLabel->height() - columnHeight) / 2, line);
+            painter.drawPixmap(i, (_screenLabelSide - columnHeight) / 2, line);
         }
         angle += angleDiff;
     }

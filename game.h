@@ -25,6 +25,9 @@ private slots:
     void updateInterface();
 
 private:
+    //Изменение данных констант может привести к некорректной работе программы!
+    static const int _screenLabelSide = 512;
+    static const int _mapLabelSide = 256;
     static const int _mapWidth = 32;
     static const int _mapHeight = 32;
     static const int _blockSide = 8;
