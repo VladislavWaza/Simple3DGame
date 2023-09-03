@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QTimer>
 #include <QKeyEvent>
+#include "sprite.h"
 
 namespace Ui {
 class Game;
@@ -46,6 +47,7 @@ private:
     int _msOfLastFrame;
     int _frameTime;
     QPixmap _wall1;
+    QList<Sprite> _sprites;
 
     double rayCast(double angle, int *texX = nullptr);
     void movePlayer(double dist, double angle);

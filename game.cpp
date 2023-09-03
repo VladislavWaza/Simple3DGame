@@ -47,6 +47,11 @@ Game::Game(QWidget *parent) :
     _map[8 * _mapHeight + 15] = 1;
     _map[10 * _mapHeight + 15] = 1;
 
+    //хардкодим мобов
+    _sprites.append(Sprite(30, 200, 1));
+    _sprites.append(Sprite(100, 60, 2));
+    _sprites.append(Sprite(12, 12, 2));
+
     //отрисовываем карту
     QPixmap pm(ui->mapLabel->size());
     pm.fill(QColor(244, 164, 96));
@@ -154,14 +159,23 @@ void Game::updateInterface()
     if (this->isActiveWindow())
         QCursor::setPos(QWidget::mapToGlobal(ui->screenLabel->pos() + QPoint(_screenLabelSide / 2, _screenLabelSide / 2)));
 
-    //отрисовка игрока на карте и луча
+    //отрисовка карты
     QPixmap pMap = _mapPixmap;
     QPainter painter(&pMap);
+    //отрисовка положение игрока
     painter.setPen(QPen(QColor(0, 100, 0), 2));
     painter.drawPoint(_x,_y);
+    //отрисовка луча видимости
     painter.setPen(QPen(QColor(150, 150, 0), 0.5));
     double dist = rayCast(_angle);
     painter.drawLine(_x, _y, _x + dist * cos(qDegreesToRadians(_angle)), _y + dist * sin(qDegreesToRadians(_angle)));
+    //отрисовка мобов на карте
+    painter.setPen(QPen(QColor(150, 0, 0), 2));
+    for(int i = 0; i < _sprites.size(); ++i)
+    {
+        painter.drawPoint(_sprites[i].getPos());
+    }
+    //отображение полученного изображения
     painter.end();
     ui->mapLabel->setPixmap(pMap);
 
@@ -206,6 +220,28 @@ void Game::updateInterface()
         }
         angle += angleDiff;
     }
+
+    //отрисовка спрайтов
+    for(int i = 0; i < _sprites.size(); ++i)
+    {
+        double spriteAngle = qRadiansToDegrees(atan2(_sprites[i].getY() - _y, _sprites[i].getX() - _x));
+        while (spriteAngle - _angle >  180) spriteAngle -= 360;
+        while (spriteAngle - _angle < -180) spriteAngle += 360;
+
+        if (fabs(spriteAngle - _angle) < _fov/2 + 10)
+        {
+            double spriteDist = sqrt(pow(_x - _sprites[i].getX(), 2) + pow(_y - _sprites[i].getY(), 2));
+            QPixmap sprite(":/img/sprite" + QString::number(_sprites[i].getTextureID()) + ".png");
+//            sprite = sprite.copy((sprite.width() * 8 / spriteDist / 2 - (_screenLabelSide) / 2) / (8 / spriteDist),
+//                                 (sprite.height() * 8 / spriteDist / 2 - _screenLabelSide / 2) / (8 / spriteDist),
+//                             _screenLabelSide / (8 / spriteDist), _screenLabelSide / (8 / spriteDist));
+            sprite = sprite.scaled(sprite.size() * 8 / spriteDist);
+            int x = ((spriteAngle - _angle)/_fov + 0.5) * _screenLabelSide - sprite.width() / 2;
+            int y = _screenLabelSide / 2 - sprite.height() / 2;
+            painter.drawPixmap(x,y, sprite);
+        }
+    }
+
 
     //отрисовка fps счетчика
     painter.setPen(QPen(QColor(0, 0, 0), 1));
