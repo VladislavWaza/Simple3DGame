@@ -197,7 +197,10 @@ void Game::updateInterface()
                 columnHeight = _screenLabelSide;
             }
             //растягиваем или сжимаем полоску до желаемой высоты
-            line = line.scaled(1, columnHeight);
+            if (columnHeight < line.height())
+                line = line.scaled(1, columnHeight, Qt::IgnoreAspectRatio, Qt::SmoothTransformation);
+            else
+                line = line.scaled(1, columnHeight);
             //рисуем полоску
             painter.drawPixmap(i, (_screenLabelSide - columnHeight) / 2, line);
         }
