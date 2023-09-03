@@ -28,6 +28,7 @@ private:
     static const int _mapWidth = 32;
     static const int _mapHeight = 32;
     static const int _blockSide = 8;
+    static const int _textureSide = 512;
     static constexpr double _fov = 60.0;
     static constexpr double _moveSpeed = 0.015;
     static constexpr double _rotationSpeed = 32;
@@ -40,8 +41,9 @@ private:
     bool _keyW, _keyS, _keyA, _keyD;
     int _msOfLastFrame;
     int _frameTime;
+    QPixmap _wall1;
 
-    double rayCast(double angle);
+    double rayCast(double angle, int *texX = nullptr);
     void movePlayer(double dist, double angle);
 };
 

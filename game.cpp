@@ -11,7 +11,7 @@ Game::Game(QWidget *parent) :
     ui->screenLabel->setFixedSize(512,512);
     ui->mapLabel->setFixedSize(256,256);
 
-    //QApplication::setOverrideCursor(Qt::BlankCursor);
+    //скрываем курсор
     ui->screenLabel->setCursor(Qt::BlankCursor);
 
     _x = 20;
@@ -64,10 +64,14 @@ Game::Game(QWidget *parent) :
     painter.end();
     _mapPixmap = pm;
 
+    //загружаем текстуры
+    _wall1.load(":/img/wall1.png");
+
+    //необходимые стартовые значения для счетчика кадров
     _frameTime = 0;
     _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
 
-    //запускаем процесс
+    //запускаем процесс игры
     connect(&_timer, &QTimer::timeout, this, &Game::updateInterface);
     _timer.start(1);
 }
@@ -131,8 +135,6 @@ void Game::updateInterface()
     if (_keyD)
         movePlayer(_moveSpeed * _frameTime, _angle + 90);
 
-
-
     //поворот
     QPoint curPos = QWidget::mapFromGlobal(QCursor::pos()) - ui->screenLabel->pos();
     if (curPos.x() >= 0 && curPos.y() >= 0)
@@ -163,29 +165,46 @@ void Game::updateInterface()
     painter.end();
     ui->mapLabel->setPixmap(pMap);
 
-
+    //подготовка к отрисовке основного экрана
     QPixmap pScreen(ui->screenLabel->size());
     painter.begin(&pScreen);
-    painter.setPen(QPen(QColor(77,34,14), 1));
+
+    //раскраска неба и земли
     painter.fillRect(0,0,pScreen.width(), pScreen.height() / 2, QColor(136, 171, 170));
     painter.fillRect(0,pScreen.height() / 2,pScreen.width(), pScreen.height() / 2, QColor(163, 85, 57));
 
-    double angleDiff = _fov / (ui->screenLabel->height() - 1);
+    //испускаем лучи покрывающие угол обзора
+    double angleDiff = _fov / (ui->screenLabel->width() - 1);
     double angle = _angle - _fov / 2;
-    for (int i = 0; i < ui->screenLabel->height(); ++i)
+
+    for (int i = 0; i < ui->screenLabel->width(); ++i)
     {
-        dist = rayCast(angle);
-        if (dist > 0)
+        int tex;
+        dist = rayCast(angle, &tex);
+        if (dist > 0) //если луч наткнулся на стену отрисовываем её
         {
-            double columnHeight = ui->screenLabel->height()/(dist*cos(qDegreesToRadians(angle-_angle))) * 2;
+            //лучу соответствует полоска из пикселей текстуры стены
+            QPixmap line = _wall1.copy(tex, 0, 1, _wall1.height());
+            //какой будет итоговая высота полоски
+            double columnHeight = ui->screenLabel->height()/(dist*cos(qDegreesToRadians(angle-_angle))) * _blockSide;
             if (columnHeight > ui->screenLabel->height())
+            {
+                //если полоска больше экрана, то обрежем преждем чем растянем
+                double stretchFactor = columnHeight / ui->screenLabel->height(); //во сколько раз полоска больше экрана
+                //отрезаем от полоски все что не будет отображено
+                line = line.copy(0, (columnHeight / 2 - ui->screenLabel->height() / 2) / stretchFactor,
+                                 1, ui->screenLabel->height() / stretchFactor);
                 columnHeight = ui->screenLabel->height();
-            painter.drawLine(i, (ui->screenLabel->height() - columnHeight) / 2,
-                             i, (ui->screenLabel->height() + columnHeight) / 2);
+            }
+            //растягиваем или сжимаем полоску до желаемой высоты
+            line = line.scaled(1, columnHeight);
+            //рисуем полоску
+            painter.drawPixmap(i, (ui->screenLabel->height() - columnHeight) / 2, line);
         }
         angle += angleDiff;
     }
 
+    //отрисовка fps счетчика
     painter.setPen(QPen(QColor(0, 0, 0), 1));
     int fps = 1000;
     if (_frameTime != 0)
@@ -195,12 +214,12 @@ void Game::updateInterface()
     painter.end();
     ui->screenLabel->setPixmap(pScreen);
 
+    //обновление информации о времени отрисовки кадра для расчета fps
     _frameTime = QTime::currentTime().msecsSinceStartOfDay() - _msOfLastFrame;
     _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
-    qDebug() << _frameTime;
 }
 
-double Game::rayCast(double angle)
+double Game::rayCast(double angle, int *texX)
 {
     //положение игрока в координатах карты
     double posX = _x / _blockSide;
@@ -279,6 +298,21 @@ double Game::rayCast(double angle)
         perpWallDist = (sideDistX - deltaDistX);
     else
         perpWallDist = (sideDistY - deltaDistY);
+
+    if (texX != nullptr)
+    {
+        double wallX; //где именно был нанесен удар лучом по стене
+        if (side == 0)
+            wallX = posY + perpWallDist * rayDirY;
+        else
+            wallX = posX + perpWallDist * rayDirX;
+        wallX = fmod(wallX, 1); //оставлем дробную часть
+
+        //вычисляем x координату в текстуре
+        *texX = static_cast<int>(wallX * static_cast<double>(_textureSide));
+        if(side == 0 && rayDirX > 0) *texX = _textureSide - *texX - 1;
+        if(side == 1 && rayDirY < 0) *texX = _textureSide - *texX - 1;
+    }
     return perpWallDist * _blockSide;
 }
 
