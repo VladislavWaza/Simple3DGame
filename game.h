@@ -46,11 +46,12 @@ private:
     bool _keyW, _keyS, _keyA, _keyD;
     int _msOfLastFrame;
     int _frameTime;
-    QPixmap _wall1;
+    QList<QPixmap> _wallsTex;
+    QList<QPixmap> _spritesTex;
     QList<Sprite> _sprites;
     QList<double> _distances;
 
-    double rayCast(double angle, int *texX = nullptr);
+    double rayCast(double angle, int *texX = nullptr, int *texNumber = nullptr);
     void movePlayer(double dist, double angle);
 };
 

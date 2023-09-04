@@ -71,7 +71,9 @@ Game::Game(QWidget *parent) :
     _mapPixmap = pm;
 
     //загружаем текстуры
-    _wall1.load(":/img/wall1.png");
+    _wallsTex.append(QPixmap(":/img/wall1.png"));
+    _spritesTex.append(QPixmap(":/img/sprite1.png"));
+    _spritesTex.append(QPixmap(":/img/sprite2.png"));
 
     //расширяем массив для хранения расстояний до стены
     _distances.resize(_screenLabelSide);
@@ -197,14 +199,14 @@ void Game::updateInterface()
 
     for (int i = 0; i < _screenLabelSide; ++i)
     {
-        int tex;
-        dist = rayCast(angle, &tex);
+        int texX, texNumber;
+        dist = rayCast(angle, &texX, &texNumber);
         if (dist > 0) //если луч наткнулся на стену отрисовываем её
         {
             //запоминаем расстояние до стены
             _distances[i] = dist;
             //лучу соответствует полоска из пикселей текстуры стены
-            QPixmap line = _wall1.copy(tex, 0, 1, _wall1.height());
+            QPixmap line = _wallsTex[texNumber - 1].copy(texX, 0, 1, _wallsTex[texNumber - 1].height());
             //какой будет итоговая высота полоски
             double columnHeight = _screenLabelSide/(dist*cos(qDegreesToRadians(angle-_angle))) * _blockSide;
             if (columnHeight > _screenLabelSide)
@@ -237,7 +239,7 @@ void Game::updateInterface()
         if (fabs(spriteAngle - _angle) < _fov/2 + 10)
         {
             double spriteDist = sqrt(pow(_x - _sprites[i].getX(), 2) + pow(_y - _sprites[i].getY(), 2));
-            QPixmap sprite(":/img/sprite" + QString::number(_sprites[i].getTextureID()) + ".png");
+            QPixmap sprite = _spritesTex[_sprites[i].getTextureID() - 1];
             if (spriteDist != 0)
             {
                 double spriteWidth = sprite.width() * 8.0 / spriteDist;
@@ -293,7 +295,7 @@ void Game::updateInterface()
     _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
 }
 
-double Game::rayCast(double angle, int *texX)
+double Game::rayCast(double angle, int *texX, int *texNumber)
 {
     //положение игрока в координатах карты
     double posX = _x / _blockSide;
@@ -366,7 +368,11 @@ double Game::rayCast(double angle, int *texX)
         }
         //Проверка, не ударился ли луч о стену
         if (_map[mapX * _mapHeight + mapY] > 0)
+        {
             hit = true;
+            if (texNumber != nullptr)
+                *texNumber = _map[mapX * _mapHeight + mapY];
+        }
     }
     if(side == 0)
         perpWallDist = (sideDistX - deltaDistX);
