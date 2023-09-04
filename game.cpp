@@ -52,6 +52,7 @@ Game::Game(QWidget *parent) :
     _sprites.append(Sprite(100, 60, 2));
     _sprites.append(Sprite(12, 12, 2));
 
+
     //отрисовываем карту
     QPixmap pm(ui->mapLabel->size());
     pm.fill(QColor(244, 164, 96));
@@ -228,17 +229,43 @@ void Game::updateInterface()
         while (spriteAngle - _angle >  180) spriteAngle -= 360;
         while (spriteAngle - _angle < -180) spriteAngle += 360;
 
+
         if (fabs(spriteAngle - _angle) < _fov/2 + 10)
         {
             double spriteDist = sqrt(pow(_x - _sprites[i].getX(), 2) + pow(_y - _sprites[i].getY(), 2));
             QPixmap sprite(":/img/sprite" + QString::number(_sprites[i].getTextureID()) + ".png");
-//            sprite = sprite.copy((sprite.width() * 8 / spriteDist / 2 - (_screenLabelSide) / 2) / (8 / spriteDist),
-//                                 (sprite.height() * 8 / spriteDist / 2 - _screenLabelSide / 2) / (8 / spriteDist),
-//                             _screenLabelSide / (8 / spriteDist), _screenLabelSide / (8 / spriteDist));
-            sprite = sprite.scaled(sprite.size() * 8 / spriteDist);
-            int x = ((spriteAngle - _angle)/_fov + 0.5) * _screenLabelSide - sprite.width() / 2;
-            int y = _screenLabelSide / 2 - sprite.height() / 2;
-            painter.drawPixmap(x,y, sprite);
+            if (spriteDist != 0)
+            {
+                double spriteWidth = sprite.width() * 8.0 / spriteDist;
+                double spriteHeight = sprite.height() * 8.0 / spriteDist;
+                int x = ((spriteAngle - _angle)/_fov + 0.5) * _screenLabelSide - spriteWidth / 2;
+                int y = _screenLabelSide / 2 - spriteHeight / 2;
+                QRect spriteRect(0,0,spriteWidth,spriteHeight);
+                QRect screenRect(-x,-y,_screenLabelSide,_screenLabelSide);
+                spriteRect = spriteRect.intersected(screenRect);
+                sprite = sprite.copy(spriteRect.x() / (spriteWidth / _screenLabelSide),
+                                     spriteRect.y() / (spriteHeight / _screenLabelSide),
+                                     spriteRect.width() / (spriteWidth / _screenLabelSide),
+                                     spriteRect.height() / (spriteHeight / _screenLabelSide));
+                if (spriteWidth > _screenLabelSide || spriteHeight >= _screenLabelSide)
+                {
+                    if (spriteWidth > spriteHeight)
+                        sprite = sprite.scaledToWidth(_screenLabelSide);
+                    else
+                        sprite = sprite.scaledToHeight(_screenLabelSide);
+                }
+                else
+                {
+                    spriteWidth = sprite.width() * 8 / spriteDist;
+                    spriteHeight = sprite.height() * 8 / spriteDist;
+                    sprite = sprite.scaled(spriteWidth, spriteHeight);
+                }
+                for (int j = 0; j < sprite.width(); ++j)
+                {
+                    QPixmap line = sprite.copy(j, 0, 1, sprite.height());
+                    painter.drawPixmap(spriteRect.x() + x + j, spriteRect.y() + y, line);
+                }
+            }
         }
     }
 
