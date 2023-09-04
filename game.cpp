@@ -73,6 +73,9 @@ Game::Game(QWidget *parent) :
     //загружаем текстуры
     _wall1.load(":/img/wall1.png");
 
+    //расширяем массив для хранения расстояний до стены
+    _distances.resize(_screenLabelSide);
+
     //необходимые стартовые значения для счетчика кадров
     _frameTime = 0;
     _msOfLastFrame = QTime::currentTime().msecsSinceStartOfDay();
@@ -198,6 +201,8 @@ void Game::updateInterface()
         dist = rayCast(angle, &tex);
         if (dist > 0) //если луч наткнулся на стену отрисовываем её
         {
+            //запоминаем расстояние до стены
+            _distances[i] = dist;
             //лучу соответствует полоска из пикселей текстуры стены
             QPixmap line = _wall1.copy(tex, 0, 1, _wall1.height());
             //какой будет итоговая высота полоски
@@ -228,7 +233,6 @@ void Game::updateInterface()
         double spriteAngle = qRadiansToDegrees(atan2(_sprites[i].getY() - _y, _sprites[i].getX() - _x));
         while (spriteAngle - _angle >  180) spriteAngle -= 360;
         while (spriteAngle - _angle < -180) spriteAngle += 360;
-
 
         if (fabs(spriteAngle - _angle) < _fov/2 + 10)
         {
@@ -262,8 +266,12 @@ void Game::updateInterface()
                 }
                 for (int j = 0; j < sprite.width(); ++j)
                 {
-                    QPixmap line = sprite.copy(j, 0, 1, sprite.height());
-                    painter.drawPixmap(spriteRect.x() + x + j, spriteRect.y() + y, line);
+                    if (spriteRect.x() + x + j >= 0 && spriteRect.x() + x + j < _screenLabelSide
+                            && spriteDist < _distances[spriteRect.x() + x + j])
+                    {
+                        QPixmap line = sprite.copy(j, 0, 1, sprite.height());
+                        painter.drawPixmap(spriteRect.x() + x + j, spriteRect.y() + y, line);
+                    }
                 }
             }
         }

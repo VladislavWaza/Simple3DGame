@@ -48,6 +48,7 @@ private:
     int _frameTime;
     QPixmap _wall1;
     QList<Sprite> _sprites;
+    QList<double> _distances;
 
     double rayCast(double angle, int *texX = nullptr);
     void movePlayer(double dist, double angle);
