@@ -229,6 +229,21 @@ void Game::updateInterface()
         angle += angleDiff;
     }
 
+    //сортировка спрайтов
+    for (int i = 0; i < _sprites.size(); ++i)
+    {
+        int j = i - 1;
+        Sprite key = _sprites[i];
+        double keyDist = sqrt(pow(_x - key.getX(), 2) + pow(_y - key.getY(), 2));
+        while (j >= 0 && sqrt(pow(_x - _sprites[j].getX(), 2) + pow(_y - _sprites[j].getY(), 2)) < keyDist)
+        {
+            _sprites[j + 1] = _sprites[j];
+            j -= 1;
+        }
+        _sprites[j + 1] = key;
+    }
+
+
     //отрисовка спрайтов
     for(int i = 0; i < _sprites.size(); ++i)
     {
