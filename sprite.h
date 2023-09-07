@@ -8,10 +8,10 @@ class Sprite
 public:
     Sprite(double x, double y, int textureID);
 
-    QPointF getPos();
-    double getX();
-    double getY();
-    int getTextureID();
+    QPointF getPos() const;
+    double getX() const;
+    double getY() const;
+    int getTextureID() const;
 
 private:
     double _x, _y;

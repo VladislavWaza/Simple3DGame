@@ -211,7 +211,7 @@ void Game::updateInterface()
             double columnHeight = _screenLabelSide/(dist*cos(qDegreesToRadians(angle-_angle))) * _blockSide;
             if (columnHeight > _screenLabelSide)
             {
-                //если полоска больше экрана, то обрежем преждем чем растянем
+                //если полоска больше экрана, то обрежем прежде чем растянем
                 double stretchFactor = columnHeight / _screenLabelSide; //во сколько раз полоска больше экрана
                 //отрезаем от полоски все что не будет отображено
                 line = line.copy(0, (columnHeight / 2 - _screenLabelSide / 2) / stretchFactor,
@@ -230,68 +230,13 @@ void Game::updateInterface()
     }
 
     //сортировка спрайтов
-    for (int i = 0; i < _sprites.size(); ++i)
-    {
-        int j = i - 1;
-        Sprite key = _sprites[i];
-        double keyDist = sqrt(pow(_x - key.getX(), 2) + pow(_y - key.getY(), 2));
-        while (j >= 0 && sqrt(pow(_x - _sprites[j].getX(), 2) + pow(_y - _sprites[j].getY(), 2)) < keyDist)
-        {
-            _sprites[j + 1] = _sprites[j];
-            j -= 1;
-        }
-        _sprites[j + 1] = key;
-    }
+    this->sortSprites();
 
 
     //отрисовка спрайтов
     for(int i = 0; i < _sprites.size(); ++i)
     {
-        double spriteAngle = qRadiansToDegrees(atan2(_sprites[i].getY() - _y, _sprites[i].getX() - _x));
-        while (spriteAngle - _angle >  180) spriteAngle -= 360;
-        while (spriteAngle - _angle < -180) spriteAngle += 360;
-
-        if (fabs(spriteAngle - _angle) < _fov/2 + 10)
-        {
-            double spriteDist = sqrt(pow(_x - _sprites[i].getX(), 2) + pow(_y - _sprites[i].getY(), 2));
-            QPixmap sprite = _spritesTex[_sprites[i].getTextureID() - 1];
-            if (spriteDist != 0)
-            {
-                double spriteWidth = sprite.width() * 8.0 / spriteDist;
-                double spriteHeight = sprite.height() * 8.0 / spriteDist;
-                int x = ((spriteAngle - _angle)/_fov + 0.5) * _screenLabelSide - spriteWidth / 2;
-                int y = _screenLabelSide / 2 - spriteHeight / 2;
-                QRect spriteRect(0,0,spriteWidth,spriteHeight);
-                QRect screenRect(-x,-y,_screenLabelSide,_screenLabelSide);
-                spriteRect = spriteRect.intersected(screenRect);
-                sprite = sprite.copy(spriteRect.x() / (spriteWidth / _screenLabelSide),
-                                     spriteRect.y() / (spriteHeight / _screenLabelSide),
-                                     spriteRect.width() / (spriteWidth / _screenLabelSide),
-                                     spriteRect.height() / (spriteHeight / _screenLabelSide));
-                if (spriteWidth > _screenLabelSide || spriteHeight >= _screenLabelSide)
-                {
-                    if (spriteWidth > spriteHeight)
-                        sprite = sprite.scaledToWidth(_screenLabelSide);
-                    else
-                        sprite = sprite.scaledToHeight(_screenLabelSide);
-                }
-                else
-                {
-                    spriteWidth = sprite.width() * 8 / spriteDist;
-                    spriteHeight = sprite.height() * 8 / spriteDist;
-                    sprite = sprite.scaled(spriteWidth, spriteHeight);
-                }
-                for (int j = 0; j < sprite.width(); ++j)
-                {
-                    if (spriteRect.x() + x + j >= 0 && spriteRect.x() + x + j < _screenLabelSide
-                            && spriteDist < _distances[spriteRect.x() + x + j])
-                    {
-                        QPixmap line = sprite.copy(j, 0, 1, sprite.height());
-                        painter.drawPixmap(spriteRect.x() + x + j, spriteRect.y() + y, line);
-                    }
-                }
-            }
-        }
+        this->drawSprite(_sprites[i], painter);
     }
 
 
@@ -423,7 +368,7 @@ void Game::movePlayer(double dist, double angle)
 
     //проверяем не подошли ли мы к какой-нибудь стене() слишком близко
     //если это так немного отходим назад
-    //это действие добавляе коллизию персонажу игрока
+    //это действие добавляет коллизию персонажу игрока
     //и избавляет от случаев когда двигаясь к далекой стене игрок проходит вплотную с другой стеной
     if (rayCast(0) < _playerCollisionRadius)
     {
@@ -441,5 +386,92 @@ void Game::movePlayer(double dist, double angle)
     if (rayCast(270) < _playerCollisionRadius)
     {
         _y += _playerCollisionRadius - rayCast(270);
+    }
+}
+
+void Game::sortSprites()
+{
+    for (int i = 0; i < _sprites.size(); ++i)
+    {
+        int j = i - 1;
+        Sprite key = _sprites[i];
+        double keyDist = sqrt(pow(_x - key.getX(), 2) + pow(_y - key.getY(), 2));
+        while (j >= 0 && sqrt(pow(_x - _sprites[j].getX(), 2) + pow(_y - _sprites[j].getY(), 2)) < keyDist)
+        {
+            _sprites[j + 1] = _sprites[j];
+            j -= 1;
+        }
+        _sprites[j + 1] = key;
+    }
+}
+
+void Game::drawSprite(const Sprite &sprite, QPainter &painter)
+{
+    //рассчитываем направление луча от игрока до спрайта
+    double spriteAngle = qRadiansToDegrees(atan2(sprite.getY() - _y, sprite.getX() - _x));
+    while (spriteAngle - _angle >  180) spriteAngle -= 360;
+    while (spriteAngle - _angle < -180) spriteAngle += 360;
+
+    if (fabs(spriteAngle - _angle) < _fov/2 + 15)
+    {
+        //рассчитываем расстояние до спрайта
+        double spriteDist = sqrt(pow(_x - sprite.getX(), 2) + pow(_y - sprite.getY(), 2));
+        //копируем текстуру спрайта
+        QPixmap spriteTex = _spritesTex[sprite.getTextureID() - 1];
+        if (spriteDist != 0)
+        {
+            //рассчитываем размеры спрайта с учетом расстояния до игрока
+            double spriteWidth = spriteTex.width() * 8.0 / spriteDist;
+            double spriteHeight = spriteTex.height() * 8.0 / spriteDist;
+
+            //рассчитываем положение левого верхнего угла текстуры спрайта относительно экрана
+            int x = ((spriteAngle - _angle)/_fov + 0.5) * _screenLabelSide - spriteWidth / 2;
+            int y = _screenLabelSide / 2 - spriteHeight / 2;
+
+            //прямоугольник соответствующий текстуре спрайта, начало координат в левом верхнем углу текстуры спрайта
+            QRect spriteRect(0,0,spriteWidth,spriteHeight);
+            //прямоугольник соответствующий экрану, начало координат в левом верхнем углу текстуры спрайта
+            QRect screenRect(-x,-y,_screenLabelSide,_screenLabelSide);
+            //прямоугольник соответствующий части текстуры спрайта которая будет отображена на экране
+            spriteRect = spriteRect.intersected(screenRect);
+            /* обрежем ту часть спрайта которая будет отображена
+             *
+             * таким образом мы не будем тратить лишнию память на расширение спрайта до огромного изображения,
+             * чтобы потом все равно его обрезать
+             *
+             * мы сначала обрежем спрайт, а потом расширим его до размера не превышающего размер экрана
+             */
+            spriteTex = spriteTex.copy(spriteRect.x() / (spriteWidth / _screenLabelSide),
+                                 spriteRect.y() / (spriteHeight / _screenLabelSide),
+                                 spriteRect.width() / (spriteWidth / _screenLabelSide),
+                                 spriteRect.height() / (spriteHeight / _screenLabelSide));
+
+            //если спрайт должен был быть шире или выше экрана, то отмасштабируем спрайт по наибольше стороне
+            if (spriteWidth > _screenLabelSide || spriteHeight >= _screenLabelSide)
+            {
+                if (spriteWidth > spriteHeight)
+                    spriteTex = spriteTex.scaledToWidth(_screenLabelSide);
+                else
+                    spriteTex = spriteTex.scaledToHeight(_screenLabelSide);
+            }
+            else //иначе пересчитаем ширину и высоту и отмасштабируем
+            {
+                spriteWidth = spriteTex.width() * 8 / spriteDist;
+                spriteHeight = spriteTex.height() * 8 / spriteDist;
+                spriteTex = spriteTex.scaled(spriteWidth, spriteHeight);
+            }
+
+            //отображать спрайт будем полосками шириной в 1 пиксель
+            //предварительно проверяя не закрывает ли стена полоску спрайта
+            for (int j = 0; j < spriteTex.width(); ++j)
+            {
+                if (spriteRect.x() + x + j >= 0 && spriteRect.x() + x + j < _screenLabelSide
+                        && spriteDist < _distances[spriteRect.x() + x + j])
+                {
+                    QPixmap line = spriteTex.copy(j, 0, 1, spriteTex.height());
+                    painter.drawPixmap(spriteRect.x() + x + j, spriteRect.y() + y, line);
+                }
+            }
+        }
     }
 }

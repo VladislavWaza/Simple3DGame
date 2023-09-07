@@ -51,8 +51,18 @@ private:
     QList<Sprite> _sprites;
     QList<double> _distances;
 
+    /* Возвращает расстояние до стены,
+     * в texX помещает x координату точки на текстуре в которую пришел луч
+     * в texNumber помещает номер текстуры стены
+     */
     double rayCast(double angle, int *texX = nullptr, int *texNumber = nullptr);
+    /* Перемещает игрока на расстояние dist по направлению угла angle
+     * Учитвает коллизию игрока и не дает слишком близко подходить к стене
+     */
     void movePlayer(double dist, double angle);
+    /* Выполняет сорировку вставками по невозрастанию расстояние до спрайта */
+    void sortSprites();
+    void drawSprite(const Sprite& sprite, QPainter &painter);
 };
 
 #endif // GAME_H
